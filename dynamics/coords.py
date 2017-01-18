@@ -42,9 +42,14 @@ def carttoels(x, y, z, vx, vy, vz, μ=1):
     a = (2 / R - v2 / μ) ** -1
     e = np.sqrt(1 - norm(h) ** 2 / (μ * a))
     i = np.arccos(hz / norm(h))
-    f = np.arcsin(norm(rdot) * a * (1 - e**2) / (norm(h) * e))
-    ω = np.arcsin(z / (R * np.sin(i))) - f
-    Ω = np.arcsin(hx / (norm(h) * np.sin(i)))
+    Ω = np.arctan2(-hx, hy)
+    # Ω = np.arcsin(hx / (norm(h) * np.sin(i)))
+    f = np.arctan2(norm(rdot) * a * (1 - e**2) / (norm(h) * e),
+                   (a * (1 - e**2) / R - 1) / e)
+    # f = np.arcsin(norm(rdot) * a * (1 - e**2) / (norm(h) * e))
+    ω = np.arctan2(z / (R * np.sin(i)),
+                   np.cos(Ω)**-1 * (x / R + np.sin(Ω) * np.cos(i) * z / (R * np.sin(i)))) - f
+    # ω = np.arcsin(z / (R * np.sin(i))) - f
     return a, e, i, ω, Ω, f
 
 def elstocart(a, e, i, ω, Ω, f):
