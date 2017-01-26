@@ -20,13 +20,14 @@ vx, vy, vz : cartesian velocity
 def norm(x):
     return np.sqrt(np.dot(x, x))
 
-def Px(phi):
+def Px(φ):
     return np.array([[1, 0, 0],
-                     [0, np.cos(phi), -np.sin(phi)],
-                     [0, np.sin(phi), np.cos(phi)]])
-def Pz(phi):
-    return np.array([[np.cos(phi), -np.sin(phi), 0],
-                     [np.sin(phi), np.cos(phi), 0],
+                     [0, np.cos(φ), -np.sin(φ)],
+                     [0, np.sin(φ), np.cos(φ)]])
+
+def Pz(φ):
+    return np.array([[np.cos(φ), -np.sin(φ), 0],
+                     [np.sin(φ), np.cos(φ), 0],
                      [0, 0, 1]])
 
 def r_ellipse(a, e, f):
@@ -43,20 +44,25 @@ def carttoels(x, y, z, vx, vy, vz, μ=1):
     e = np.sqrt(1 - norm(h) ** 2 / (μ * a))
     i = np.arccos(hz / norm(h))
     Ω = np.arctan2(-hx, hy)
-    # Ω = np.arcsin(hx / (norm(h) * np.sin(i)))
     f = np.arctan2(norm(rdot) * a * (1 - e**2) / (norm(h) * e),
                    (a * (1 - e**2) / R - 1) / e)
-    # f = np.arcsin(norm(rdot) * a * (1 - e**2) / (norm(h) * e))
     ω = np.arctan2(z / (R * np.sin(i)),
                    np.cos(Ω)**-1 * (x / R + np.sin(Ω) * np.cos(i) * z / (R * np.sin(i)))) - f
-    # ω = np.arcsin(z / (R * np.sin(i))) - f
     return a, e, i, ω, Ω, f
 
-def elstocart(a, e, i, ω, Ω, f):
+def elstocart(a, e, i, ω, Ω, f, μ=1):
     rot = Pz(Ω) @ Px(i) @ Pz(ω)
-    r = r_ellipse(a, e, f) * np.array([np.cos(f), np.sin(f)])
+    r = r_ellipse(a, e, f) * np.array([np.cos(f), np.sin(f), 0])
+    R = norm(r)
     x, y, z = rot @ r
-    pass
+    h = np.sqrt(μ * a * (1 - e**2))
+    fdot = h / R ** 2
+    Rdot = a * (1 - e ** 2) * e * fdot * np.sin(f) / (1 + e ** 2 * np.cos(f)) ** 2
+    vx_plane = Rdot * np.cos(f) - R * fdot * np.sin(f)
+    vy_plane = Rdot * np.sin(f) + R * fdot * np.cos(f)
+    v_plane = np.array([vx_plane, vy_plane, 0])
+    vx, vy, vz = rot @ v_plane
+    return x, y, z, vx, vy, vz
 
 def barytohelio():
     pass
