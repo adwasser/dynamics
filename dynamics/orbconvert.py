@@ -19,9 +19,9 @@ vx, vy, vz : cartesian velocity
 
 π = np.pi
 
-def norm(x):
+def norm(x, axis=0):
     """Calculates the euclidean norm of the vector."""
-    return np.sqrt(np.dot(x, x))
+    return np.sqrt(np.square(x).sum(axis=axis))
 
 
 def Px(φ):
@@ -46,7 +46,7 @@ def Pz(φ):
 
 
 def r_ellipse(a, e, f):
-    """Calculates the radius frome the foci of an ellipse.
+    """Calculates the radius from the foci of an ellipse.
 
     Parameters
     ----------
@@ -62,7 +62,7 @@ def r_ellipse(a, e, f):
     
 
 def carttoels(x, y, z, vx, vy, vz, μ=1):
-    """ Transforms cartesian coordinates to orbital elements.
+    """Transforms cartesian coordinates to orbital elements.
 
     Parameters
     ----------
@@ -79,25 +79,25 @@ def carttoels(x, y, z, vx, vy, vz, μ=1):
     Ω : longitude of the ascending node
     f : true anomaly    
     """
-    r = np.array([x, y, z])
-    rdot = np.array([vx, vy, vz])
+    r = np.vstack([x, y, z]).squeeze()
+    rdot = np.vstack([vx, vy, vz]).squeeze()
     R = norm(r)
     v2 = norm(rdot) ** 2
-    h = np.cross(r, rdot)
+    h = np.cross(r, rdot, axis=0)
     hx, hy, hz = h
     a = (2 / R - v2 / μ) ** -1
     e = np.sqrt(1 - norm(h) ** 2 / (μ * a))
     i = np.arccos(hz / norm(h))
-    Ω = np.arctan2(-hx, hy)
-    f = np.arctan2(norm(rdot) * a * (1 - e**2) / (norm(h) * e),
-                   (a * (1 - e**2) / R - 1) / e)
-    ω = np.arctan2(z / (R * np.sin(i)),
-                   np.cos(Ω)**-1 * (x / R + np.sin(Ω) * np.cos(i) * z / (R * np.sin(i)))) - f
+    sign = np.sign(np.cos(i))
+    Ω = np.arctan2(sign * hx, -sign * hy)
+    f = np.arctan2(norm(rdot) * a * (1 - e**2) / norm(h),
+                   a * (1 - e**2) / R - 1)
+    ω = np.arctan2(z * np.cos(Ω), x * np.sin(i) + z * np.sin(Ω) * np.cos(i)) - f
     return a, e, i, ω, Ω, f
 
 
 def elstocart(a, e, i, ω, Ω, f, μ=1):
-    """ Transforms orbital elements to cartesian coordinates.
+    """Transforms orbital elements to cartesian coordinates.
 
     Parameters
     ----------
@@ -115,7 +115,7 @@ def elstocart(a, e, i, ω, Ω, f, μ=1):
     vx, vy, vz: cartesian velocity coordinates, in inertial frame    
     """    
     rot = Pz(Ω) @ Px(i) @ Pz(ω)
-    r = r_ellipse(a, e, f) * np.array([np.cos(f), np.sin(f), 0])
+    r = r_ellipse(a, e, f) * np.vstack([np.cos(f), np.sin(f), 0 * f]).squeeze()
     R = norm(r)
     x, y, z = rot @ r
     h = np.sqrt(μ * a * (1 - e**2))
@@ -123,7 +123,7 @@ def elstocart(a, e, i, ω, Ω, f, μ=1):
     Rdot = a * (1 - e ** 2) * e * fdot * np.sin(f) / (1 + e ** 2 * np.cos(f)) ** 2
     vx_plane = Rdot * np.cos(f) - R * fdot * np.sin(f)
     vy_plane = Rdot * np.sin(f) + R * fdot * np.cos(f)
-    v_plane = np.array([vx_plane, vy_plane, 0])
+    v_plane = np.vstack([vx_plane, vy_plane, 0 * f]).squeeze()
     vx, vy, vz = rot @ v_plane
     return x, y, z, vx, vy, vz
 
@@ -145,23 +145,18 @@ def barytohelio(x_bary, y_bary, z_bary, vx_bary, vy_bary, vz_bary, mass_ratio, �
     """
     r2 = np.array([x_bary, y_bary, z_bary])
     v2 = np.array([vx_bary, vy_bary, vz_bary])
-    
-    R2 = norm(r2)
-    R = (mass_ratio + 1) * R2
-    R1 = mass_ratio / (mass_ratio + 1) * R
-    r_helio = r2 + R1 * r2 / R2
-
     a2, e, i, ω, Ω, f = carttoels(x_bary, y_bary, z_bary, vx_bary, vy_bary, vz_bary, μ=μ)
     a = (mass_ratio + 1) * a2
     a1 = mass_ratio / (mass_ratio + 1) * a
     x1, y1, z1, vx1, vy1, vz1 = elstocart(a1, e, i, ω + π, Ω, f, μ=μ)
     r1 = np.array([x1, y1, z1])
     v1 = np.array([vx1, vy1, vz1])
+    r_helio = r2 - r1
     v_helio = v2 - v1
-    assert np.all(np.isclose(r_helio, r2 - r1))
-    
     x_helio, y_helio, z_helio = r_helio
     vx_helio, vy_helio, vz_helio = v_helio
+    print(r2, v2)
+    print(r1, v1)
     return x_helio, y_helio, z_helio, vx_helio, vy_helio, vz_helio
 
 
