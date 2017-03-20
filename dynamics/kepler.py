@@ -1,5 +1,6 @@
 import numpy as np
 
+
 """
 Solving Kepler's equation.
 
@@ -81,7 +82,7 @@ def initial_guess(M, e, k=0.85):
     -------
     E0 : initial guess for E
     """
-    return M + np.sin(np.sin(M)) * k * e
+    return M + np.sign(np.sin(M)) * k * e
 
 
 def iterate(E, func0, func1, func2, func3):
@@ -125,11 +126,31 @@ def solve_kepler(M, e, rtol=1e-6):
     i = 0
     while rerr > rtol:
         E = iterate(E0, func0, func1, func2, func3)
-        rerr = np.abs(E / E0)
-        print("iteration {:03}: E = {:.2f}, rerr = {:.2f}".format(i, E, rerr))
+        rerr = np.abs((E - E0) / E0)
         E0 = E
         i += 1
-        if i > 1000:
-            raise RuntimeError("Number of iterations exceeded 1000!")
+        if i > 100:
+            raise RuntimeError("Number of iterations exceeded 100!")
     return E
         
+def kepler_orbit(t, a, e, μ=1, cart=False):
+    """Solve for the radii and true anomalies of a Keplerian orbit at the specified timesteps.
+    t : array of times in years / 2π
+    a : semi-major axis in AU
+    e : eccentricity
+    μ : standard gravitational parameter, μ = G(M1 + M2)
+    cart : bool, if true return x, y coords
+    """
+    P = 1 / np.sqrt(μ) * a ** (3/2)          # period
+    n = 1 / P                                # mean motion
+    M = n * t                                # mean anomaly
+    try:
+        E = np.array([solve_kepler(MM, e) for MM in M])
+    except TypeError:
+        E = solve_kepler(M, e)
+    r = a * (1 - e * np.cos(E))
+    f = 2 * np.arctan(np.sqrt((1 + e) / (1 - e)) * np.tan(E / 2))
+    if not cart:
+        return r, f
+    return r * np.cos(f), r * np.sin(f)
+    
